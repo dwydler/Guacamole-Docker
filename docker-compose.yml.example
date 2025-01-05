@@ -1,0 +1,166 @@
+services:
+  guacamole:
+    container_name: "guacamole_frontend"
+    image: "guacamole/guacamole:${GUACAMOLE_DOCKER_CONTAINER_TAG}"
+    restart: "unless-stopped"
+
+    depends_on:
+      guacd:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+    environment:
+      GUACD_HOSTNAME: guacd
+      USE_SYSTEM_CA_CERTS: "true"
+
+      POSTGRESQL_DATABASE: '${POSTGRES_DB}'
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRESQL_USER: '${POSTGRES_USER}'
+      POSTGRESQL_AUTO_CREATE_ACCOUNTS: true
+
+      VIRTUAL_HOST: "${GUACAMOLE_FQDN}"
+      VIRTUAL_PORT: "8080"
+      VIRTUAL_PATH: "/"
+      VIRTUAL_DEST: "/guacamole/"
+      LETSENCRYPT_HOST: "${GUACAMOLE_FQDN}"
+
+    volumes:
+      - "./guacamole/drive:/drive:rw"
+      - "./guacamole/record:/var/lib/guacamole/recordings:rw"
+
+      - "./guacamole/certificates:/certificates:ro"
+      #- "./guacamole/java/security:/opt/java/openjdk/jre/lib/security:rw"
+
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    networks:
+      guacamole_internal:
+      nginxproxy_guacamole:
+
+    healthcheck:
+      test: "curl -f http://localhost:8080/guacamole/ || exit 1"
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
+
+
+  guacd:
+    container_name: "guacamole_backend"
+    image: "guacamole/guacd:${GUACAMOLE_DOCKER_CONTAINER_TAG}"
+    restart: "unless-stopped"
+
+    volumes:
+      - "./guacamole/drive:/drive:rw"
+      - "./guacamole/record:/var/lib/guacamole/recordings:rw"
+
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    networks:
+      guacamole_internal:
+
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z 127.0.0.1 4822 || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    container_name: "guacamole_database"
+    image: "postgres:${POSTGRES_DOCKER_CONTAINER_TAG}"
+    restart: "unless-stopped"
+
+    environment:
+      PGDATA: "/var/lib/postgresql/data/guacamole"
+      POSTGRES_DB: '${POSTGRES_DB}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_USER: '${POSTGRES_USER}'
+
+    volumes:
+      - "./postgres/init:/docker-entrypoint-initdb.d:ro"
+      - "./postgres/postgres_${POSTGRES_DOCKER_CONTAINER_TAG_MAJOR_VERSION}/data:/var/lib/postgresql/data:rw"
+
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    networks:
+      guacamole_internal:
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
+
+#################
+
+
+  nginxproxy:
+    container_name: "guacamole_nginxproxy"
+    image: "nginxproxy/nginx-proxy:alpine"
+    restart: "unless-stopped"
+
+    ports:
+      - 80:80
+      - 443:443
+
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+
+    volumes:
+      - "./nginxproxy/certs:/etc/nginx/certs:ro"
+      - "./nginxproxy/vhostd:/etc/nginx/vhost.d:rw"
+      - "./nginxproxy/html:/usr/share/nginx/html:rw"
+
+      # WARNING: OWASP discorages sharing /var/run/docker.sock even in read-only mode
+      # Read this: https://blog.jarrousse.org/2024/09/01/a-slightly-more-secure-docker-first-solution/
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+
+    networks:
+      - nginxproxy_internal
+      - default
+      - nginxproxy_guacamole
+
+
+  nginxproxy-acme-companion:
+    container_name: "guacamole_nginxproxy_acme"
+    image: "nginxproxy/acme-companion"
+    restart: "unless-stopped"
+
+    environment:
+      ACME_CA_URI: "${NGINXPROXY_ACME_CA_URL}"
+      DEFAULT_KEY_SIZE: "${NGINXPROXY_ACME_KEYSIZE}"
+      DEFAULT_EMAIL: "${NGINXPROXY_ACME_EMAIL}"
+
+    volumes:
+      - "./nginxproxy/certs:/etc/nginx/certs:rw"
+      - "./nginxproxy/acme:/etc/acme.sh:rw"
+      - "./nginxproxy/vhostd:/etc/nginx/vhost.d:rw"
+      - "./nginxproxy/html:/usr/share/nginx/html:rw"
+
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+    networks:
+      nginxproxy_internal:
+
+    depends_on:
+      - nginxproxy
+
+
+networks:
+  nginxproxy_guacamole:
+  nginxproxy_internal:
+  guacamole_internal:

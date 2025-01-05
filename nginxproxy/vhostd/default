@@ -1,0 +1,17 @@
+### Custom error page for http status code 403
+error_page 403 /default_403.html;
+location /default_403.html {
+    root /usr/share/nginx/html/errors;
+    internal;
+}
+
+
+###
+add_header X-Frame-Options "SAMEORIGIN";
+add_header X-Content-Type-Options "nosniff";
+add_header X-XSS-Protection "1; mode=block";
+
+
+add_header Referrer-Policy "strict-origin";
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
+add_header Permissions-Policy "accelerometer=(self), autoplay=(self), camera=(self), cross-origin-isolated=(self), display-capture=(self), encrypted-media=(self), fullscreen=(self), geolocation=(self), gyroscope=(self), keyboard-map=(self), magnetometer=(self), microphone=(self), midi=(self), payment=(self), picture-in-picture=(self), publickey-credentials-get=(self), screen-wake-lock=(self), sync-xhr=(self), usb=(self), web-share=(self), xr-spatial-tracking=(self), clipboard-read=(self), clipboard-write=(self), gamepad=(self)";

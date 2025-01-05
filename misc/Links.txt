@@ -1,0 +1,12 @@
+https://blog.jarrousse.org/2022/11/01/a-docker-first-solution-to-running-nginx-reverse-proxy-with-automatically-updated-lets-encrypt-ssl-certificates-using-nginx-proxy-and-acme-companion/
+https://krdesigns.com/articles/how-to-install-guacamole-using-docker-step-by-step
+https://theko2fi.medium.com/apache-guacamole-manual-installation-with-docker-compose-222cef1894e3
+
+
+https://github.com/nginx-proxy/nginx-proxy
+https://github.com/nginx-proxy/acme-companion
+
+
+https://guacamole.apache.org/doc/gug/guacamole-docker.html#custom-extensions-and-guacamole-home
+https://lists.apache.org/thread/lfw4yt1xs90tt13my3b9l0mpfkftofs4
+https://lists.apache.org/thread/4g8o2kb01srxv43nsk0f31csq556x4hq
